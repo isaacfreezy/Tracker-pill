@@ -4,44 +4,73 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pill Tracker</title>
+
+  <!-- Home Screen icon -->
   <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
   <style>
+    /* 🌈 PASTEL / TROPICAL THEME */
+    :root {
+      --bg-color: #fdf6f0;        /* soft peach */
+      --card-color: #ffffff;
+
+      --text-color: #2f2f2f;
+      --muted: #8f8f8f;
+
+      --morning-color: #6ed3a8;   /* tropical mint */
+      --night-color: #7b8df1;     /* pastel ocean */
+
+      --button-text: #ffffff;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f4f6f8;
+      background: var(--bg-color);
       margin: 0;
       padding: 20px;
       text-align: center;
+      color: var(--text-color);
     }
 
     h1 {
-      margin-bottom: 10px;
+      margin-bottom: 20px;
     }
 
     .status {
+      background: var(--card-color);
       font-size: 1.2em;
-      margin: 15px 0;
+      padding: 12px;
+      margin: 12px auto;
+      border-radius: 14px;
+      max-width: 320px;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
     }
 
     button {
       width: 100%;
-      max-width: 300px;
-      padding: 15px;
+      max-width: 320px;
+      padding: 16px;
       margin: 10px auto;
       font-size: 1.2em;
       border: none;
-      border-radius: 12px;
+      border-radius: 16px;
       cursor: pointer;
+      color: var(--button-text);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+      transition: transform 0.1s ease, opacity 0.2s ease;
+    }
+
+    button:active {
+      transform: scale(0.97);
     }
 
     .morning {
-      background-color: #4CAF50;
-      color: white;
+      background-color: var(--morning-color);
     }
 
     .night {
-      background-color: #3F51B5;
-      color: white;
+      background-color: var(--night-color);
     }
 
     .taken {
@@ -51,7 +80,17 @@
     .footer {
       margin-top: 30px;
       font-size: 0.9em;
-      color: #666;
+      color: var(--muted);
+    }
+
+    /* 🌙 Auto dark mode (still soft & calm) */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #1f2933;
+        --card-color: #111827;
+        --text-color: #e5e7eb;
+        --muted: #9ca3af;
+      }
     }
   </style>
 </head>
@@ -65,7 +104,7 @@
   <div class="status" id="nightStatus">Night: ❌</div>
   <button class="night" id="nightBtn">Take Night Pill</button>
 
-  <div class="footer" id="resetInfo"></div>
+  <div class="footer" id="resetInfo">Resets daily at 3:00 a.m.</div>
 
 <script>
   const RESET_HOUR = 3;
@@ -102,9 +141,6 @@
 
     document.getElementById("morningBtn").classList.toggle("taken", morningTaken);
     document.getElementById("nightBtn").classList.toggle("taken", nightTaken);
-
-    document.getElementById("resetInfo").textContent =
-      "Resets daily at 3:00 a.m.";
   }
 
   document.getElementById("morningBtn").onclick = () => {
