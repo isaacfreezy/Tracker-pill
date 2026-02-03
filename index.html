@@ -11,11 +11,10 @@
 :root {
   --bg-color: #fdf6f0;
   --text-color: #2f2f2f;
-  --muted: #8f8f8f;
 
-  --incomplete: #984447; /* uncompleted */
-  --complete: #C5D86D;   /* completed */
-  --pending: #F39237;    /* today/pending */
+  --incomplete: #B0413E; /* updated red */
+  --complete: #C5D86D;   
+  --pending: #F39237;    
 }
 
 body {
@@ -79,6 +78,7 @@ h1 { margin-bottom: 20px; }
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -6px 20px rgba(0,0,0,0.2);
   transition: bottom 0.3s ease;
+  z-index: 1000;
 }
 .drawer.open { bottom: 0; }
 
@@ -102,25 +102,33 @@ input {
   cursor: pointer;
 }
 .add { background: #6ed3a8; color: white; }
+.delete { background: #ef4444; color: white; }
 .close { background: #e5e7eb; color: #111; }
 
-.weekView {
+/* Weekly view overlay */
+.weekOverlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: white;
+  overflow-y: auto;
+  padding: 20px;
   display: none;
-  max-width: 360px;
-  margin: 0 auto 140px;
-  text-align: left;
+  z-index: 999;
 }
-.weekView table {
+.weekOverlay h2 { text-align: center; margin-bottom: 20px; }
+.weekOverlay table {
   width: 100%;
   border-collapse: collapse;
 }
-.weekView th, .weekView td {
-  padding: 8px;
+.weekOverlay th, .weekOverlay td {
+  padding: 4px;
   text-align: center;
-  border-radius: 8px;
+  border-radius: 4px;
 }
-.weekView td { min-width: 30px; }
-
+.weekOverlay td {
+  min-width: 25px;
+  min-height: 25px;
+}
 </style>
 </head>
 <body>
@@ -129,7 +137,9 @@ input {
 
 <div id="habitList"></div>
 
-<div class="weekView" id="weekView">
+<!-- Weekly overlay -->
+<div class="weekOverlay" id="weekOverlay">
+  <button style="position:absolute; top:20px; right:20px; padding:10px 14px; background:#222;color:white;border:none;border-radius:10px;" onclick="toggleWeekView()">Close</button>
   <h2>Weekly Reflection</h2>
   <table id="weekTable"></table>
 </div>
@@ -139,10 +149,16 @@ input {
   <button id="weekBtn" onclick="toggleWeekView()">View Week</button>
 </div>
 
+<!-- Drawer with Add + Delete mode -->
 <div class="drawer" id="drawer">
   <h2>Add Habit</h2>
   <input id="habitName" placeholder="Habit name">
   <button class="add" onclick="addHabit()">Add Habit</button>
+
+  <h2>Delete Habits</h2>
+  <button class="delete" id="deleteModeBtn" onclick="toggleDeleteMode()">Activate Delete Mode</button>
+  <p id="deleteInfo" style="color:#B0413E; margin-top:6px; font-size:0.9em; display:none;">Tap a habit in the list below to delete it.</p>
+
   <button class="close" onclick="toggleDrawer(false)">Close</button>
 </div>
 
@@ -154,138 +170,157 @@ let deleteMode = false;
 function getResetDate() {
   const now = new Date();
   const reset = new Date(now);
-  reset.setHours(RESET_HOUR, 0, 0, 0);
-  if (now < reset) reset.setDate(reset.getDate()-1);
+  reset.setHours(RESET_HOUR,0,0,0);
+  if(now<reset) reset.setDate(reset.getDate()-1);
   return reset.toDateString();
 }
 
-function getHabits() { return JSON.parse(localStorage.getItem("habits")) || []; }
-function saveHabits(h) { localStorage.setItem("habits", JSON.stringify(h)); }
+function getHabits() { return JSON.parse(localStorage.getItem("habits"))||[]; }
+function saveHabits(h) { localStorage.setItem("habits",JSON.stringify(h)); }
 
 function initHabits() {
-  if (!localStorage.getItem("habits")) {
+  if(!localStorage.getItem("habits")){
     saveHabits([
-      { id: "morning_pill", label: "Morning Pill" },
-      { id: "night_pill", label: "Night Pill" }
+      {id:"morning_pill",label:"Morning Pill"},
+      {id:"night_pill",label:"Night Pill"}
     ]);
   }
 }
 
 function dailyReset() {
-  const today = getResetDate();
-  if (localStorage.getItem("resetDate") !== today) {
-    getHabits().forEach(h => localStorage.setItem(h.id, "false"));
-    localStorage.setItem("resetDate", today);
+  const today=getResetDate();
+  if(localStorage.getItem("resetDate")!==today){
+    getHabits().forEach(h=>localStorage.setItem(h.id,"false"));
+    localStorage.setItem("resetDate",today);
   }
 }
 
 function renderHabits() {
-  const container = document.getElementById("habitList");
-  container.innerHTML = "";
-  getHabits().forEach((habit, index) => {
-    const done = localStorage.getItem(habit.id) === "true";
-    const div = document.createElement("div");
-    div.className = `habit ${done ? "complete" : "incomplete"}`;
-    div.textContent = habit.label;
-    div.draggable = true;
+  const container=document.getElementById("habitList");
+  container.innerHTML="";
+  getHabits().forEach((habit,index)=>{
+    const done=localStorage.getItem(habit.id)==="true";
+    const div=document.createElement("div");
+    div.className=`habit ${done?"complete":"incomplete"}`;
+    div.textContent=habit.label;
+    div.draggable=true;
 
-    div.onclick = () => {
-      if(deleteMode) {
-        const habits = getHabits().filter(h => h.id !== habit.id);
+    div.onclick=()=>{
+      if(deleteMode){
+        const habits=getHabits().filter(h=>h.id!==habit.id);
         saveHabits(habits);
         localStorage.removeItem(habit.id);
-        deleteMode = false;
+        deleteMode=false;
+        toggleDeleteMode();
         renderHabits();
-      } else {
-        localStorage.setItem(habit.id, (!done).toString());
+      }else{
+        localStorage.setItem(habit.id,(!done).toString());
+        saveDailyCompletion(habit);
         renderHabits();
       }
     };
 
-    div.ondragstart = () => draggedIndex = index;
-    div.ondragover = e=> e.preventDefault();
-    div.ondrop = () => reorderHabits(index);
+    div.ondragstart=()=>draggedIndex=index;
+    div.ondragover=e=>e.preventDefault();
+    div.ondrop=()=>reorderHabits(index);
     container.appendChild(div);
   });
 }
 
-function reorderHabits(targetIndex) {
-  const habits = getHabits();
-  const moved = habits.splice(draggedIndex,1)[0];
+function reorderHabits(targetIndex){
+  const habits=getHabits();
+  const moved=habits.splice(draggedIndex,1)[0];
   habits.splice(targetIndex,0,moved);
   saveHabits(habits);
   renderHabits();
 }
 
-function addHabit() {
-  const name = habitName.value.trim();
-  if(!name) return;
-  const habits = getHabits();
-  habits.push({id:name.toLowerCase().replace(/\s+/g,"_"), label:name});
+function addHabit(){
+  const name=habitName.value.trim();
+  if(!name)return;
+  const habits=getHabits();
+  habits.push({id:name.toLowerCase().replace(/\s+/g,"_"),label:name});
   saveHabits(habits);
   habitName.value="";
   renderHabits();
 }
 
-function toggleDrawer(open) {
-  document.getElementById("drawer").classList.toggle("open", open);
+function toggleDrawer(open){
+  document.getElementById("drawer").classList.toggle("open",open);
 }
 
-function toggleWeekView() {
-  const weekDiv = document.getElementById("weekView");
-  weekDiv.style.display = weekDiv.style.display==="block" ? "none" : "block";
-  if(weekDiv.style.display==="block") renderWeek();
+function toggleDeleteMode(){
+  deleteMode=!deleteMode;
+  const btn=document.getElementById("deleteModeBtn");
+  const info=document.getElementById("deleteInfo");
+  if(deleteMode){
+    btn.textContent="Delete Mode: ON";
+    btn.style.background="#B0413E";
+    info.style.display="block";
+  }else{
+    btn.textContent="Activate Delete Mode";
+    btn.style.background="#ef4444";
+    info.style.display="none";
+  }
 }
 
-function renderWeek() {
-  const table = document.getElementById("weekTable");
-  table.innerHTML = "";
-  const habits = getHabits();
-  const days = 7;
-  const today = new Date();
+function toggleWeekView(){
+  const overlay=document.getElementById("weekOverlay");
+  overlay.style.display=overlay.style.display==="block"?"none":"block";
+  if(overlay.style.display==="block") renderWeek();
+}
+
+function renderWeek(){
+  const table=document.getElementById("weekTable");
+  table.innerHTML="";
+  const habits=getHabits();
+  const days=7;
+  const today=new Date();
 
   // Header row
-  let tr = document.createElement("tr");
-  tr.appendChild(document.createElement("th")); // empty top-left
+  let tr=document.createElement("tr");
+  tr.appendChild(document.createElement("th"));
   for(let i=days-1;i>=0;i--){
-    let th = document.createElement("th");
-    const d = new Date(today);
+    const th=document.createElement("th");
+    const d=new Date(today);
     d.setDate(d.getDate()-i);
-    th.textContent = d.toLocaleDateString('en-US',{weekday:'short'});
+    th.textContent=d.toLocaleDateString('en-US',{weekday:'short'});
     tr.appendChild(th);
   }
   table.appendChild(tr);
 
   habits.forEach(habit=>{
-    const tr = document.createElement("tr");
-    let td = document.createElement("td");
-    td.textContent = habit.label;
+    const tr=document.createElement("tr");
+    let td=document.createElement("td");
+    td.textContent=habit.label;
+    td.style.textAlign="left";
     tr.appendChild(td);
 
     for(let i=days-1;i>=0;i--){
-      const td = document.createElement("td");
-      const d = new Date(today);
+      const td=document.createElement("td");
+      const d=new Date(today);
       d.setDate(d.getDate()-i);
-      const key = `${habit.id}_${d.toDateString()}`;
-      let done = localStorage.getItem(key) === "true";
-      if(d.toDateString() === today.toDateString() && !done) td.className="pending";
+      const key=`${habit.id}_${d.toDateString()}`;
+      let done=localStorage.getItem(key)==="true";
+      if(d.toDateString()===today.toDateString() && !done) td.className="pending";
       else td.className=done?"complete":"incomplete";
+      td.style.width="20px";
+      td.style.height="20px";
+      td.style.margin="2px";
       tr.appendChild(td);
     }
     table.appendChild(tr);
   });
 }
 
-// Save daily completions with date for weekly view
-function saveDailyCompletion(habit) {
-  const key = `${habit.id}_${new Date().toDateString()}`;
-  localStorage.setItem(key, "true");
+function saveDailyCompletion(habit){
+  const key=`${habit.id}_${new Date().toDateString()}`;
+  localStorage.setItem(key,"true");
 }
 
 initHabits();
 dailyReset();
 renderHabits();
 </script>
-
 </body>
 </html>
