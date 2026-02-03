@@ -3,24 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pill Tracker</title>
+  <title>Habit Tracker</title>
 
-  <!-- Home Screen icon -->
-  <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="icon.png">
 
   <style>
-    /* 🌈 PASTEL / TROPICAL THEME */
     :root {
-      --bg-color: #fdf6f0;        /* soft peach */
+      --bg-color: #fdf6f0;
       --card-color: #ffffff;
-
       --text-color: #2f2f2f;
       --muted: #8f8f8f;
-
-      --morning-color: #6ed3a8;   /* tropical mint */
-      --night-color: #7b8df1;     /* pastel ocean */
-
+      --morning-color: #6ed3a8;
+      --night-color: #7b8df1;
       --button-text: #ffffff;
     }
 
@@ -33,48 +28,50 @@
       color: var(--text-color);
     }
 
-    h1 {
-      margin-bottom: 20px;
+    h1, h2 {
+      margin-bottom: 12px;
     }
 
     .status {
       background: var(--card-color);
-      font-size: 1.2em;
       padding: 12px;
-      margin: 12px auto;
+      margin: 10px auto;
       border-radius: 14px;
       max-width: 320px;
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+      cursor: grab;
     }
 
     button {
       width: 100%;
       max-width: 320px;
-      padding: 16px;
-      margin: 10px auto;
-      font-size: 1.2em;
+      padding: 14px;
+      margin: 6px auto;
+      font-size: 1em;
       border: none;
-      border-radius: 16px;
+      border-radius: 14px;
       cursor: pointer;
       color: var(--button-text);
-      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-      transition: transform 0.1s ease, opacity 0.2s ease;
     }
 
-    button:active {
-      transform: scale(0.97);
+    .morning { background-color: var(--morning-color); }
+    .night { background-color: var(--night-color); }
+
+    .taken { opacity: 0.5; }
+
+    input, select {
+      width: 100%;
+      max-width: 320px;
+      padding: 10px;
+      margin: 6px auto;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 1em;
     }
 
-    .morning {
-      background-color: var(--morning-color);
-    }
-
-    .night {
-      background-color: var(--night-color);
-    }
-
-    .taken {
-      opacity: 0.5;
+    .delete {
+      background: #ef4444;
+      margin-bottom: 16px;
     }
 
     .footer {
@@ -82,32 +79,27 @@
       font-size: 0.9em;
       color: var(--muted);
     }
-
-    /* 🌙 Auto dark mode (still soft & calm) */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-color: #1f2933;
-        --card-color: #111827;
-        --text-color: #e5e7eb;
-        --muted: #9ca3af;
-      }
-    }
   </style>
 </head>
 <body>
 
-  <h1>💊 Pill Tracker</h1>
+<h1>✅ Habit Tracker</h1>
 
-  <div class="status" id="morningStatus">Morning: ❌</div>
-  <button class="morning" id="morningBtn">Take Morning Pill</button>
+<div id="habitList"></div>
 
-  <div class="status" id="nightStatus">Night: ❌</div>
-  <button class="night" id="nightBtn">Take Night Pill</button>
+<h2>➕ Add Habit</h2>
+<input id="habitName" placeholder="Habit name">
+<select id="habitTime">
+  <option value="morning">Morning</option>
+  <option value="night">Night</option>
+</select>
+<button onclick="addHabit()">Add Habit</button>
 
-  <div class="footer" id="resetInfo">Resets daily at 3:00 a.m.</div>
+<div class="footer">Resets daily at 3:00 a.m. • Drag habits to reorder</div>
 
 <script>
   const RESET_HOUR = 3;
+  let draggedIndex = null;
 
   function getResetDate() {
     const now = new Date();
@@ -117,43 +109,101 @@
     return reset.toDateString();
   }
 
-  function loadData() {
-    const today = getResetDate();
-    const savedDate = localStorage.getItem("resetDate");
+  function getHabits() {
+    return JSON.parse(localStorage.getItem("habits")) || [];
+  }
 
-    if (savedDate !== today) {
-      localStorage.setItem("morning", "false");
-      localStorage.setItem("night", "false");
+  function saveHabits(habits) {
+    localStorage.setItem("habits", JSON.stringify(habits));
+  }
+
+  function initHabits() {
+    if (!localStorage.getItem("habits")) {
+      saveHabits([
+        { id: "morning_pill", label: "💊 Morning Pill", class: "morning" },
+        { id: "night_pill", label: "💊 Night Pill", class: "night" }
+      ]);
+    }
+  }
+
+  function dailyReset() {
+    const today = getResetDate();
+    if (localStorage.getItem("resetDate") !== today) {
+      getHabits().forEach(h => localStorage.setItem(h.id, "false"));
       localStorage.setItem("resetDate", today);
     }
-
-    updateUI();
   }
 
-  function updateUI() {
-    const morningTaken = localStorage.getItem("morning") === "true";
-    const nightTaken = localStorage.getItem("night") === "true";
+  function renderHabits() {
+    const container = document.getElementById("habitList");
+    container.innerHTML = "";
 
-    document.getElementById("morningStatus").textContent =
-      `Morning: ${morningTaken ? "✅" : "❌"}`;
-    document.getElementById("nightStatus").textContent =
-      `Night: ${nightTaken ? "✅" : "❌"}`;
+    getHabits().forEach((habit, index) => {
+      const taken = localStorage.getItem(habit.id) === "true";
 
-    document.getElementById("morningBtn").classList.toggle("taken", morningTaken);
-    document.getElementById("nightBtn").classList.toggle("taken", nightTaken);
+      const card = document.createElement("div");
+      card.className = "status";
+      card.draggable = true;
+
+      card.ondragstart = () => draggedIndex = index;
+      card.ondragover = e => e.preventDefault();
+      card.ondrop = () => reorderHabits(index);
+
+      card.innerHTML = `${habit.label}: ${taken ? "✅" : "❌"}`;
+
+      const doneBtn = document.createElement("button");
+      doneBtn.className = habit.class + (taken ? " taken" : "");
+      doneBtn.textContent = "Mark Done";
+      doneBtn.onclick = () => {
+        localStorage.setItem(habit.id, "true");
+        renderHabits();
+      };
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete";
+      delBtn.textContent = "🗑 Delete";
+      delBtn.onclick = () => deleteHabit(habit.id);
+
+      container.appendChild(card);
+      container.appendChild(doneBtn);
+      container.appendChild(delBtn);
+    });
   }
 
-  document.getElementById("morningBtn").onclick = () => {
-    localStorage.setItem("morning", "true");
-    updateUI();
-  };
+  function reorderHabits(targetIndex) {
+    const habits = getHabits();
+    const moved = habits.splice(draggedIndex, 1)[0];
+    habits.splice(targetIndex, 0, moved);
+    saveHabits(habits);
+    renderHabits();
+  }
 
-  document.getElementById("nightBtn").onclick = () => {
-    localStorage.setItem("night", "true");
-    updateUI();
-  };
+  function addHabit() {
+    const name = habitName.value.trim();
+    const time = habitTime.value;
+    if (!name) return;
 
-  loadData();
+    const habits = getHabits();
+    habits.push({
+      id: name.toLowerCase().replace(/\s+/g, "_"),
+      label: name,
+      class: time
+    });
+
+    saveHabits(habits);
+    habitName.value = "";
+    renderHabits();
+  }
+
+  function deleteHabit(id) {
+    saveHabits(getHabits().filter(h => h.id !== id));
+    localStorage.removeItem(id);
+    renderHabits();
+  }
+
+  initHabits();
+  dailyReset();
+  renderHabits();
 </script>
 
 </body>
