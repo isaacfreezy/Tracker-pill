@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pill Tracker</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .status {
+      font-size: 1.2em;
+      margin: 15px 0;
+    }
+
+    button {
+      width: 100%;
+      max-width: 300px;
+      padding: 15px;
+      margin: 10px auto;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .morning {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .night {
+      background-color: #3F51B5;
+      color: white;
+    }
+
+    .taken {
+      opacity: 0.5;
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 0.9em;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>💊 Pill Tracker</h1>
+
+  <div class="status" id="morningStatus">Morning: ❌</div>
+  <button class="morning" id="morningBtn">Take Morning Pill</button>
+
+  <div class="status" id="nightStatus">Night: ❌</div>
+  <button class="night" id="nightBtn">Take Night Pill</button>
+
+  <div class="footer" id="resetInfo"></div>
+
+<script>
+  const RESET_HOUR = 3;
+
+  function getResetDate() {
+    const now = new Date();
+    const reset = new Date(now);
+    reset.setHours(RESET_HOUR, 0, 0, 0);
+    if (now < reset) reset.setDate(reset.getDate() - 1);
+    return reset.toDateString();
+  }
+
+  function loadData() {
+    const today = getResetDate();
+    const savedDate = localStorage.getItem("resetDate");
+
+    if (savedDate !== today) {
+      localStorage.setItem("morning", "false");
+      localStorage.setItem("night", "false");
+      localStorage.setItem("resetDate", today);
+    }
+
+    updateUI();
+  }
+
+  function updateUI() {
+    const morningTaken = localStorage.getItem("morning") === "true";
+    const nightTaken = localStorage.getItem("night") === "true";
+
+    document.getElementById("morningStatus").textContent =
+      `Morning: ${morningTaken ? "✅" : "❌"}`;
+    document.getElementById("nightStatus").textContent =
+      `Night: ${nightTaken ? "✅" : "❌"}`;
+
+    document.getElementById("morningBtn").classList.toggle("taken", morningTaken);
+    document.getElementById("nightBtn").classList.toggle("taken", nightTaken);
+
+    document.getElementById("resetInfo").textContent =
+      "Resets daily at 3:00 a.m.";
+  }
+
+  document.getElementById("morningBtn").onclick = () => {
+    localStorage.setItem("morning", "true");
+    updateUI();
+  };
+
+  document.getElementById("nightBtn").onclick = () => {
+    localStorage.setItem("night", "true");
+    updateUI();
+  };
+
+  loadData();
+</script>
+
+</body>
+</html>
